@@ -1,0 +1,57 @@
+name: Setup WireGuard
+description: 'Sets up WireGuard connection for use in composite actions'
+inputs:
+  target_ip:
+    description: 'Target IP to test connectivity'
+    required: true
+  wg_private_key:
+    description: 'WireGuard private key'
+    required: true
+  wg_peer_public_key:
+    description: 'WireGuard peer public key'
+    required: true
+  wg_endpoint:
+    description: 'WireGuard endpoint'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup WireGuard
+      shell: bash
+      run: |
+        echo "Installing WireGuard..."
+        sudo apt-get update && sudo apt-get install -y wireguard
+        
+        echo "Creating WireGuard configuration..."
+        sudo tee /etc/wireguard/wg0.conf > /dev/null <<EOF
+        [Interface]
+        PrivateKey = ${{ inputs.wg_private_key }}
+        Address = 192.168.100.5/32
+        
+        [Peer]
+        PublicKey = ${{ inputs.wg_peer_public_key }}
+        Endpoint = ${{ inputs.wg_endpoint }}:51820
+        AllowedIPs = 192.168.100.0/24,192.168.30.0/24
+        PersistentKeepalive = 25
+        EOF
+        
+        echo "Configuration file created:"
+        sudo cat /etc/wireguard/wg0.conf
+        
+        echo "Bringing up WireGuard interface..."
+        sudo wg-quick up wg0
+        
+        echo "WireGuard status after bringing up:"
+        sudo wg show
+        
+        echo "Network interfaces:"
+        ip addr show
+        
+        echo "Routing table:"
+        ip route show
+        
+        echo "Testing connectivity to target IP: ${{ inputs.target_ip }}"
+        ping -c 3 ${{ inputs.target_ip }}
+        
+        echo "WireGuard connection established successfully!"
