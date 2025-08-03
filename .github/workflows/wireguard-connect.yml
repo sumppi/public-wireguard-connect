@@ -1,0 +1,34 @@
+name: WireGuard Connect
+on:
+  workflow_call:
+    inputs:
+      target_ip:
+        required: true
+        type: string
+    secrets:
+      WG_PRIVATE_KEY:
+        required: true
+      WG_PEER_PUBLIC_KEY:
+        required: true
+      WG_ENDPOINT:
+        required: true
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          sudo apt-get update && sudo apt-get install -y wireguard
+          sudo tee /etc/wireguard/wg0.conf > /dev/null <<EOF
+          [Interface]
+          PrivateKey = ${{ secrets.WG_PRIVATE_KEY }}
+          Address = 192.168.100.5/32
+          
+          [Peer]
+          PublicKey = ${{ secrets.WG_PEER_PUBLIC_KEY }}
+          Endpoint = ${{ secrets.WG_ENDPOINT }}:51820
+          AllowedIPs = 192.168.100.0/24,192.168.30.0/24
+          PersistentKeepalive = 25
+          EOF
+          sudo wg-quick up wg0
+          ping -c 1 ${{ inputs.target_ip }}
